@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import os
 
 # -----------------------------
 # Page Configuration
@@ -11,76 +12,165 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🏠 House Price Prediction")
-st.write("Enter the house details and click **Predict Price**.")
-
 # -----------------------------
-# Load Trained Pipeline
+# Load Model
 # -----------------------------
 @st.cache_resource
 def load_model():
-    return joblib.load("house_price_model.pkl")
+    model_path = "house_price_model.pkl"
+
+    if not os.path.exists(model_path):
+        st.error("Model file 'house_price_model.pkl' not found.")
+        st.stop()
+
+    return joblib.load(model_path)
 
 pipeline = load_model()
 
-# ===========================================================
-# REPLACE THESE FEATURE NAMES WITH YOUR DATASET COLUMN NAMES
-# (Exclude the target column 'Price')
-# ===========================================================
+# -----------------------------
+# Title
+# -----------------------------
+st.title("🏠 House Price Prediction")
+st.write("Enter the house details below to estimate the house price.")
 
-FEATURES = {
-    "Area": ("number", 1200),
-    "Bedrooms": ("number", 3),
-    "Bathrooms": ("number", 2),
-    "Stories": ("number", 2),
-    "Parking": ("number", 1),
-    "MainRoad": ("text", "Yes"),
-    "GuestRoom": ("text", "No"),
-    "Basement": ("text", "No"),
-    "HotWaterHeating": ("text", "No"),
-    "AirConditioning": ("text", "Yes"),
-    "PrefArea": ("text", "Yes"),
-    "FurnishingStatus": ("text", "Semi-furnished")
-}
+# -----------------------------
+# Sidebar
+# -----------------------------
+st.sidebar.header("About")
+st.sidebar.info(
+    """
+    This application predicts house prices using a Machine Learning model
+    built with Scikit-learn and deployed using Streamlit.
+    """
+)
 
-user_input = {}
+# -----------------------------
+# Input Form
+# -----------------------------
+with st.form("prediction_form"):
 
-col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2)
 
-i = 0
-for feature, (dtype, default) in FEATURES.items():
+    with col1:
+        area = st.number_input(
+            "Area (sq ft)",
+            min_value=100,
+            value=1500,
+            step=50
+        )
 
-    column = col1 if i % 2 == 0 else col2
+        bedrooms = st.number_input(
+            "Bedrooms",
+            min_value=1,
+            max_value=10,
+            value=3
+        )
 
-    with column:
-        if dtype == "number":
-            value = st.number_input(feature, value=float(default))
-        else:
-            value = st.text_input(feature, value=str(default))
+        bathrooms = st.number_input(
+            "Bathrooms",
+            min_value=1,
+            max_value=10,
+            value=2
+        )
 
-    user_input[feature] = value
-    i += 1
+        stories = st.number_input(
+            "Stories",
+            min_value=1,
+            max_value=5,
+            value=2
+        )
 
-input_df = pd.DataFrame([user_input])
+        parking = st.number_input(
+            "Parking",
+            min_value=0,
+            max_value=10,
+            value=1
+        )
 
-st.subheader("Input Data")
-st.dataframe(input_df)
+    with col2:
 
-if st.button("Predict House Price"):
+        mainroad = st.selectbox(
+            "Main Road",
+            ["Yes", "No"]
+        )
+
+        guestroom = st.selectbox(
+            "Guest Room",
+            ["Yes", "No"]
+        )
+
+        basement = st.selectbox(
+            "Basement",
+            ["Yes", "No"]
+        )
+
+        hotwaterheating = st.selectbox(
+            "Hot Water Heating",
+            ["Yes", "No"]
+        )
+
+        airconditioning = st.selectbox(
+            "Air Conditioning",
+            ["Yes", "No"]
+        )
+
+        prefarea = st.selectbox(
+            "Preferred Area",
+            ["Yes", "No"]
+        )
+
+        furnishingstatus = st.selectbox(
+            "Furnishing Status",
+            [
+                "Furnished",
+                "Semi-furnished",
+                "Unfurnished"
+            ]
+        )
+
+    predict = st.form_submit_button("🔍 Predict House Price")
+
+# -----------------------------
+# Prediction
+# -----------------------------
+if predict:
+
+    input_df = pd.DataFrame({
+        "Area": [area],
+        "Bedrooms": [bedrooms],
+        "Bathrooms": [bathrooms],
+        "Stories": [stories],
+        "Parking": [parking],
+        "MainRoad": [mainroad],
+        "GuestRoom": [guestroom],
+        "Basement": [basement],
+        "HotWaterHeating": [hotwaterheating],
+        "AirConditioning": [airconditioning],
+        "PrefArea": [prefarea],
+        "FurnishingStatus": [furnishingstatus]
+    })
+
+    st.subheader("Input Summary")
+    st.dataframe(input_df, use_container_width=True)
 
     try:
-        prediction = pipeline.predict(input_df)
+        prediction = pipeline.predict(input_df)[0]
 
         st.success("Prediction Successful!")
 
         st.metric(
-            "Estimated House Price",
-            f"₹ {prediction[0]:,.2f}"
+            label="Estimated House Price",
+            value=f"₹ {prediction:,.2f}"
         )
+
+        st.balloons()
 
     except Exception as e:
         st.error("Prediction failed.")
         st.exception(e)
 
+# -----------------------------
+# Footer
+# -----------------------------
 st.markdown("---")
-st.caption("Developed using Streamlit and Scikit-learn")
+st.caption("Developed using Streamlit • Scikit-learn • Python")
